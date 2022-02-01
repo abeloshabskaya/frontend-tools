@@ -1,0 +1,205 @@
+/**
+ * Gulp configuration
+ */
+
+const gulp = require('gulp');
+const imagemin = require('gulp-imagemin');
+const changed = require('gulp-changed');
+const less = require('gulp-less');
+const sourcemaps = require('gulp-sourcemaps');
+const plumber = require('gulp-plumber');
+const notifier = require('gulp-notifier');
+const data = require('gulp-data');
+const nunjucks = require('gulp-nunjucks-render');
+
+
+/**
+ * Other plugins
+ */
+
+const fs = require('fs');
+const del = require( 'del');
+const bsCreate = require('browser-sync');
+
+/**
+ * Gulp methods
+ */
+
+const {dest, series, parallel} = gulp
+const bs = bsCreate();
+
+/**
+ * Set paths
+ */
+
+const DIRS = {
+    ROOT : './',
+    SRC  : './src',
+    DIST : './dist'
+}
+
+const PATH = {
+    IMAGES : {
+        SRC  : `${DIRS.SRC}/images/**/*`,
+        DIST : `${DIRS.DIST}/images/`
+    },
+    CSS : {
+        SRC  : `${DIRS.SRC}/css/**/*.css`,
+        DIST : `${DIRS.DIST}/css/`
+    },
+    LESS : {
+        SRC : `${DIRS.SRC}/css/**/*.less`,
+        ENTRY : `${DIRS.SRC}/css/style.less`
+    },
+    NJK : {
+        JSON : `${DIRS.SRC}/templates/_data/data.json`,
+        ENTRY : `${DIRS.SRC}/templates/_templates/`,
+        TEMPLATES : `${DIRS.SRC}/templates/_templates/**/*.njk`,
+        PAGES : `${DIRS.SRC}/templates/_pages/**/*.njk`,
+        DIST : `${DIRS.SRC}`
+    },
+    JS : {
+        SRC  : `${DIRS.SRC}/js/**/*.js`,
+        DIST : `${DIRS.DIST}/js/`
+    }
+}
+
+/**
+ * Set plugins configuration 
+ */
+
+const CONFIG = {
+    SERVER : {
+        // https://browsersync.io/docs/options
+        port: 3333,
+        server: {
+            baseDir: DIRS.DIST,
+            // index: 'login.html', 
+            // index: 'main.html',
+            index: 'about.html'
+        },
+        open: false,
+        notify: false
+    },
+    LESS : {
+        // https://lesscss.org/usage/#less-options
+        rootpath: './',
+        relativeUrls: true
+    },
+    PLUMBER : {
+        errorHandler: notifier.error
+    },
+    NJK : {
+        // https://mozilla.github.io/nunjucks/api.html#configure
+        path: PATH.NJK.ENTRY,
+        envOptions: {
+            watch: false,
+            trimBlocks: true,
+            lstripBlocks: true
+        }
+    }
+}
+
+/**
+ * Gulp tasks 
+ */
+
+// const example = () => {
+//     return gulp
+//         .src()
+//         .pipe(dest())
+// }
+
+const html = () => {
+    return gulp
+        .src(PATH.NJK.PAGES)
+        .pipe(changed(PATH.NJK.DIST))
+        .pipe(plumber(CONFIG.PLUMBER))
+        .pipe(data(() => {
+            return JSON.parse(fs.readFileSync(PATH.NJK.JSON, 'utf-8'))
+        }))
+        .pipe(nunjucks(CONFIG.NJK))
+        .pipe(dest('./dist'))
+}
+
+exports.html = html;
+
+const css = () => {
+    return gulp
+        .src(`${DIRS.SRC}/**/*.css`)
+        .pipe(changed('./dist/css'))
+        .pipe(dest('./dist'))
+}
+
+exports.css = css;
+
+const less_css = () => {
+    return gulp
+        .src(PATH.LESS.ENTRY)
+        .pipe(changed(PATH.CSS.DIST))
+        .pipe(plumber(CONFIG.PLUMBER))
+        .pipe(sourcemaps.init())
+        .pipe(less(CONFIG.LESS))
+        .pipe(sourcemaps.write())
+        .pipe(dest(PATH.CSS.DIST))
+}
+
+exports.less_css = less_css;
+
+const styles = parallel(css, less_css)
+
+exports.styles = styles;
+
+const images = () => {
+    return gulp 
+        .src(PATH.IMAGES.SRC)
+        .pipe(changed(PATH.IMAGES.DIST))
+        .pipe(imagemin())
+        .pipe(dest(PATH.IMAGES.DIST))
+}
+
+exports.images = images;
+
+const js = () => {
+    return gulp
+        .src(PATH.JS.SRC)
+        .pipe(changed(PATH.JS.DIST))
+        .pipe(dest(PATH.JS.DIST))
+}
+
+exports.js = js;
+
+const build = parallel(
+    html,
+    styles,
+    images,
+    js
+)
+
+exports.build = build;
+
+const watch = () => {
+    bs.init(CONFIG.SERVER);
+
+    gulp.watch([PATH.NJK.TEMPLATES, PATH.NJK.PAGES], html)
+        .on('change', bs.reload)
+
+    gulp.watch([PATH.CSS.SRC, PATH.LESS.SRC], styles)
+        .on('change', bs.reload)
+
+    gulp.watch([PATH.IMAGES.SRC], images)
+        .on('change', bs.reload)
+
+    gulp.watch([PATH.JS.SRC], js)
+        .on('change', bs.reload)
+}
+
+exports.watch = watch;
+
+const clean = () => {
+    return del(`${DIRS.DIST}/*`)
+}
+
+exports.clean = clean;
+
+exports.default = series(build, watch);
