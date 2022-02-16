@@ -1,0 +1,16 @@
+{
+    "mainNavigation": [
+        {
+            "content": "Main",
+            "url": "/main.html"
+        },
+        {
+            "content": "About",
+            "url": "/about.html"
+        },
+        {
+            "content": "Contacts",
+            "url": "/login.html"
+        }
+    ]
+}

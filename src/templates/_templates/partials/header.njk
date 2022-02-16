@@ -1,0 +1,7 @@
+<header>
+    <nav class="nav">
+    {% for item in mainNavigation %}
+        <a class="nav__item" href="{{item.url}}">{{item.content}}</a>
+    {% endfor %}
+    </nav>
+</header>
